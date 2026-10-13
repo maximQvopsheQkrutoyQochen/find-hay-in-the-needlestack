@@ -1,0 +1,1231 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Поиск 1 Сенинки в Иголках 3D + Мультиплеер</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- OrbitControls -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #030712;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: none;
+        }
+
+        #canvas-container {
+            width: 100%;
+            height: 100%;
+            position: absolute;
+            top: 0;
+            left: 0;
+            z-index: 1;
+        }
+
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.92);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.7);
+        }
+
+        .gold-glow {
+            box-shadow: 0 0 30px rgba(234, 179, 8, 0.35);
+        }
+
+        .gold-gradient-text {
+            background: linear-gradient(135deg, #fef08a 0%, #eab308 50%, #ca8a04 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        @media screen and (orientation: portrait) {
+            #portrait-warning {
+                display: flex !important;
+            }
+        }
+
+        .btn-shine {
+            position: relative;
+            overflow: hidden;
+        }
+        .btn-shine::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(60deg, transparent, rgba(255,255,255,0.25), transparent);
+            transform: rotate(30deg);
+            transition: transform 0.8s;
+        }
+        .btn-shine:hover::after {
+            transform: rotate(30deg) translate(100%, 100%);
+        }
+
+        .diff-card {
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+        .diff-card:hover, .diff-card.selected {
+            transform: translateY(-2px);
+        }
+        .diff-card.selected {
+            border-color: #eab308;
+            background: rgba(234, 179, 8, 0.12);
+        }
+
+        .custom-scroll::-webkit-scrollbar {
+            width: 6px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.6);
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: rgba(234, 179, 8, 0.3);
+            border-radius: 4px;
+        }
+    </style>
+</head>
+<body class="text-slate-100 flex items-center justify-center">
+
+    <!-- 3D Canvas -->
+    <div id="canvas-container"></div>
+
+    <!-- Portrait orientation warning -->
+    <div id="portrait-warning" class="fixed inset-0 bg-slate-950/95 z-50 hidden flex-col items-center justify-center p-6 text-center">
+        <div class="w-20 h-20 mb-6 text-yellow-500 animate-bounce flex items-center justify-center rounded-full bg-yellow-500/10 border border-yellow-500/30">
+            <i class="fa-solid fa-rotate-left text-4xl"></i>
+        </div>
+        <h2 class="text-2xl font-bold mb-2 text-yellow-400">Поверните устройство</h2>
+        <p class="text-slate-400 max-w-xs text-sm">Игра создана для горизонтального режима (Landscape). Поверните экран для удобного обзора.</p>
+    </div>
+
+    <!-- Authentication Modal (Required on launch if not logged in) -->
+    <div id="auth-modal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/90 backdrop-blur-md">
+        <div class="glass-panel max-w-sm w-full rounded-2xl p-6 border border-slate-700 relative text-center">
+            <div class="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center mb-3 mx-auto gold-glow">
+                <i class="fa-solid fa-user-lock text-2xl text-amber-400"></i>
+            </div>
+            
+            <h2 class="text-xl font-extrabold gold-gradient-text mb-1">Вход в Игру</h2>
+            <p class="text-slate-300 text-xs mb-4">Введите никнейм и пароль. Если вы новый игрок, аккаунт создастся автоматически!</p>
+
+            <form id="nickname-auth-form" class="space-y-3 text-left">
+                <div>
+                    <label class="block text-[11px] text-slate-300 mb-1 font-semibold">Никнейм</label>
+                    <input type="text" id="auth-nickname" required minlength="3" maxlength="15" placeholder="Например: Искатель123" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:border-amber-400 outline-none">
+                </div>
+                <div>
+                    <label class="block text-[11px] text-slate-300 mb-1 font-semibold">Пароль</label>
+                    <input type="password" id="auth-password" required minlength="4" placeholder="••••••••" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:border-amber-400 outline-none">
+                </div>
+                <div id="auth-error" class="text-red-400 text-[11px] hidden text-center bg-red-500/10 p-2 rounded-lg border border-red-500/20"></div>
+                <button type="submit" id="auth-submit-btn" class="btn-shine w-full py-2.5 bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 font-bold text-xs rounded-xl hover:brightness-110 active:scale-[0.98] transition-all">
+                    Войти / Зарегистрироваться
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Start / Main Menu Screen -->
+    <div id="start-screen" class="fixed inset-0 z-40 hidden flex items-center justify-center p-3 md:p-4 overflow-y-auto">
+        <div class="glass-panel max-w-xl w-full rounded-2xl p-4 md:p-6 text-center flex flex-col items-center border border-slate-700/50 my-auto">
+            
+            <!-- User Status Header -->
+            <div class="w-full flex justify-between items-center mb-3 bg-slate-900/60 p-2.5 rounded-xl border border-slate-800">
+                <div class="flex items-center space-x-2 text-xs text-slate-300">
+                    <i class="fa-solid fa-user-circle text-amber-400 text-sm"></i>
+                    <span id="user-display-name" class="font-medium truncate max-w-[150px]">Гость</span>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <button id="leaderboard-btn" class="px-2.5 py-1 text-xs rounded-lg bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 font-semibold border border-amber-500/30 transition-all flex items-center space-x-1.5">
+                        <i class="fa-solid fa-trophy"></i>
+                        <span>Рекорды</span>
+                    </button>
+                    <button id="logout-btn" class="px-2.5 py-1 text-xs rounded-lg bg-slate-800 text-slate-300 hover:bg-slate-700 font-semibold border border-slate-700 transition-all">
+                        Выйти
+                    </button>
+                </div>
+            </div>
+
+            <div class="w-12 h-12 rounded-2xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center mb-2 gold-glow">
+                <i class="fa-solid fa-wheat-awn text-xl text-amber-400"></i>
+            </div>
+            
+            <h1 class="text-xl md:text-2xl font-extrabold tracking-tight mb-1 gold-gradient-text">
+                Поиск 1 Сенинки в Иголках
+            </h1>
+            <p class="text-slate-300 text-xs mb-3 leading-relaxed">
+                Найдите ровно <span class="text-amber-400 font-bold">1 золотую сенинку</span> в 3D-кучи иголок соло или в дуэли!
+            </p>
+
+            <!-- Mode Selection Tabs -->
+            <div class="flex bg-slate-900/80 p-1 rounded-xl w-full mb-3 border border-slate-800">
+                <button id="mode-solo-tab" class="flex-1 py-1.5 text-xs font-bold rounded-lg bg-amber-500 text-slate-950 transition-all">Одиночная Игра</button>
+                <button id="mode-multi-tab" class="flex-1 py-1.5 text-xs font-bold rounded-lg text-slate-400 hover:text-white transition-all">Мультиплеер Дуэль <i class="fa-solid fa-bolt text-amber-400 ml-1"></i></button>
+            </div>
+
+            <!-- Solo Mode Options -->
+            <div id="solo-options" class="w-full mb-4 text-left">
+                <div class="text-[11px] uppercase font-bold text-slate-400 mb-2 tracking-wider text-center">Выберите сложность:</div>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
+                    <div class="diff-card selected bg-slate-800/80 p-2.5 rounded-xl border border-slate-700/60 text-center" data-needles="5000" data-name="Легко" data-key="easy">
+                        <div class="text-xs font-bold text-emerald-400 mb-0.5">Легко</div>
+                        <div class="text-sm font-extrabold text-slate-100">5 000</div>
+                        <div class="text-[10px] text-slate-400">иголок</div>
+                    </div>
+                    <div class="diff-card bg-slate-800/80 p-2.5 rounded-xl border border-slate-700/60 text-center" data-needles="7000" data-name="Средне" data-key="medium">
+                        <div class="text-xs font-bold text-sky-400 mb-0.5">Средне</div>
+                        <div class="text-sm font-extrabold text-slate-100">7 000</div>
+                        <div class="text-[10px] text-slate-400">иголок</div>
+                    </div>
+                    <div class="diff-card bg-slate-800/80 p-2.5 rounded-xl border border-slate-700/60 text-center" data-needles="9000" data-name="Сложно" data-key="hard">
+                        <div class="text-xs font-bold text-amber-400 mb-0.5">Сложно</div>
+                        <div class="text-sm font-extrabold text-slate-100">9 000</div>
+                        <div class="text-[10px] text-slate-400">иголок</div>
+                    </div>
+                    <div class="diff-card bg-slate-800/80 p-2.5 rounded-xl border border-slate-700/60 text-center" data-needles="11000" data-name="Кошмарно" data-key="nightmare">
+                        <div class="text-xs font-bold text-rose-500 mb-0.5">Кошмарно</div>
+                        <div class="text-sm font-extrabold text-slate-100">11 000</div>
+                        <div class="text-[10px] text-slate-400">иголок</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Multiplayer Mode Options -->
+            <div id="multi-options" class="w-full mb-4 text-left hidden space-y-3">
+                <div class="grid grid-cols-2 gap-2">
+                    <button id="create-room-btn" class="py-2.5 bg-amber-500/20 border border-amber-500/40 hover:bg-amber-500/30 text-amber-300 rounded-xl text-xs font-bold transition-all flex flex-col items-center justify-center">
+                        <i class="fa-solid fa-plus-circle text-base mb-1"></i>
+                        <span>Создать Комнату</span>
+                    </button>
+                    <button id="quick-match-btn" class="py-2.5 bg-sky-500/20 border border-sky-500/40 hover:bg-sky-500/30 text-sky-300 rounded-xl text-xs font-bold transition-all flex flex-col items-center justify-center">
+                        <i class="fa-solid fa-bolt text-base mb-1"></i>
+                        <span>Быстрый Поиск</span>
+                    </button>
+                </div>
+                <div class="flex items-center space-x-2">
+                    <input type="text" id="room-code-input" placeholder="Код комнаты (напр. 4821)" class="flex-1 bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:border-amber-400 outline-none text-center font-mono">
+                    <button id="join-room-btn" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 rounded-xl text-xs font-bold transition-all">
+                        Войти
+                    </button>
+                </div>
+            </div>
+
+            <button id="start-btn" class="btn-shine w-full py-2.5 px-6 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 font-bold text-sm shadow-lg shadow-amber-500/20 hover:brightness-110 active:scale-[0.98] transition-all cursor-pointer">
+                Начать поиск <i class="fa-solid fa-play ml-1.5 text-xs"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- Multiplayer Lobby Waiting Overlay -->
+    <div id="lobby-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 bg-slate-950/85 backdrop-blur-md">
+        <div class="glass-panel max-w-sm w-full rounded-2xl p-6 text-center border border-slate-700">
+            <div class="w-12 h-12 rounded-full bg-sky-500/20 border border-sky-500/40 flex items-center justify-center mb-3 mx-auto animate-pulse">
+                <i class="fa-solid fa-users text-xl text-sky-400"></i>
+            </div>
+            <h3 class="text-lg font-bold text-white mb-1">Ожидание соперника...</h3>
+            <p class="text-xs text-slate-400 mb-4">Поделитесь кодом комнаты для совместной гонки в одинаковой куче:</p>
+            
+            <div class="bg-slate-900 border border-slate-700 rounded-xl p-3 mb-5 flex items-center justify-center space-x-3">
+                <span id="lobby-code-display" class="font-mono text-2xl font-bold tracking-widest text-amber-400">----</span>
+            </div>
+
+            <button id="cancel-lobby-btn" class="w-full py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs rounded-xl transition-colors">
+                Отмена
+            </button>
+        </div>
+    </div>
+
+    <!-- Leaderboard Modal -->
+    <div id="leaderboard-modal" class="fixed inset-0 z-50 hidden flex items-center justify-center p-3 md:p-4 bg-slate-950/80 backdrop-blur-md">
+        <div class="glass-panel max-w-lg w-full rounded-2xl p-4 md:p-5 border border-slate-700 relative flex flex-col max-h-[85vh]">
+            <div class="flex justify-between items-center mb-3">
+                <div class="flex items-center space-x-2">
+                    <i class="fa-solid fa-trophy text-amber-400 text-lg"></i>
+                    <h3 class="text-base font-bold text-slate-100">Таблица рекордов</h3>
+                </div>
+                <button id="close-leaderboard-modal" class="text-slate-400 hover:text-white text-lg">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="grid grid-cols-5 gap-1 border-b border-slate-700 pb-2 mb-3">
+                <button class="lb-tab active py-1 text-[10px] font-bold rounded bg-amber-500/20 text-amber-400 border border-amber-500/30" data-diff="easy">5 000</button>
+                <button class="lb-tab py-1 text-[10px] font-bold rounded bg-slate-800 text-slate-400 border border-slate-700" data-diff="medium">7 000</button>
+                <button class="lb-tab py-1 text-[10px] font-bold rounded bg-slate-800 text-slate-400 border border-slate-700" data-diff="hard">9 000</button>
+                <button class="lb-tab py-1 text-[10px] font-bold rounded bg-slate-800 text-slate-400 border border-slate-700" data-diff="nightmare">11 000</button>
+                <button class="lb-tab py-1 text-[10px] font-bold rounded bg-slate-800 text-slate-400 border border-slate-700" data-diff="multi">Победы ⚔️</button>
+            </div>
+
+            <div class="flex-1 overflow-y-auto custom-scroll pr-1">
+                <table class="w-full text-left text-xs border-collapse">
+                    <thead>
+                        <tr class="text-slate-400 border-b border-slate-800 text-[10px] uppercase">
+                            <th class="py-2 px-1">#</th>
+                            <th class="py-2 px-2">Игрок</th>
+                            <th id="lb-col-3" class="py-2 px-2 text-right">Время</th>
+                            <th id="lb-col-4" class="py-2 px-1 text-right">Иголки</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leaderboard-tbody" class="divide-y divide-slate-800/50">
+                        <tr>
+                            <td colspan="4" class="py-6 text-center text-slate-500 text-xs">Загрузка рекордов...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- HUD Overlay -->
+    <div id="hud" class="fixed inset-0 z-30 pointer-events-none hidden flex flex-col justify-between p-3 md:p-5">
+        <div class="flex justify-between items-start w-full">
+            <div class="glass-panel pointer-events-auto px-4 py-2 rounded-xl flex items-center space-x-3 border border-slate-700/50">
+                <div class="flex items-center space-x-2">
+                    <i class="fa-solid fa-layer-group text-amber-400 text-xs"></i>
+                    <span id="hud-diff" class="text-xs font-bold text-amber-400">Легко</span>
+                </div>
+                <div class="h-3.5 w-[1px] bg-slate-700"></div>
+                <div class="flex items-center space-x-2">
+                    <i class="fa-solid fa-square-minus text-slate-400 text-xs"></i>
+                    <span id="counter" class="text-sm font-bold text-slate-100">5000 / 5000</span>
+                </div>
+                <div class="h-3.5 w-[1px] bg-slate-700"></div>
+                <div class="flex items-center space-x-2">
+                    <i class="fa-regular fa-clock text-slate-400 text-xs"></i>
+                    <span id="timer" class="text-sm font-mono font-bold text-slate-200">00:00</span>
+                </div>
+            </div>
+
+            <!-- Multiplayer Live HUD Badge -->
+            <div id="multi-hud" class="glass-panel pointer-events-auto px-4 py-2 rounded-xl hidden flex items-center space-x-3 border border-sky-500/40 bg-sky-950/40">
+                <div class="flex items-center space-x-2">
+                    <span class="w-2 h-2 rounded-full bg-emerald-400 animate-ping"></span>
+                    <span id="opponent-name-hud" class="text-xs font-bold text-sky-300">Соперник</span>
+                </div>
+                <div class="h-3.5 w-[1px] bg-sky-800"></div>
+                <div class="text-xs text-slate-300">
+                    Вытащил: <span id="opponent-pulled-hud" class="font-bold font-mono text-amber-400">0</span>
+                </div>
+            </div>
+
+            <div class="glass-panel pointer-events-auto px-1.5 py-1.5 rounded-xl flex items-center space-x-1 border border-slate-700/50">
+                <button id="sound-btn" class="w-8 h-8 rounded-lg flex items-center justify-center text-slate-300 hover:text-white hover:bg-slate-800 transition-colors">
+                    <i class="fa-solid fa-volume-high text-xs"></i>
+                </button>
+                <button id="reset-cam-btn" class="w-8 h-8 rounded-lg flex items-center justify-center text-slate-300 hover:text-white hover:bg-slate-800 transition-colors">
+                    <i class="fa-solid fa-compress text-xs"></i>
+                </button>
+                <button id="restart-game-btn" class="w-8 h-8 rounded-lg flex items-center justify-center text-red-400 hover:text-red-300 hover:bg-slate-800 transition-colors">
+                    <i class="fa-solid fa-bars text-xs"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Victory / Game Over Modal -->
+    <div id="victory-screen" class="fixed inset-0 z-50 hidden flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md">
+        <div class="glass-panel max-w-md w-full rounded-2xl p-6 text-center flex flex-col items-center gold-glow border border-amber-500/30">
+            <div id="win-icon-container" class="w-16 h-16 rounded-full bg-gradient-to-tr from-amber-500 to-yellow-300 flex items-center justify-center mb-3 text-slate-950 text-3xl shadow-lg shadow-amber-500/30">
+                <i class="fa-solid fa-trophy"></i>
+            </div>
+
+            <h2 id="win-title" class="text-2xl font-extrabold gold-gradient-text mb-1">Победа!</h2>
+            <p id="win-subtitle" class="text-slate-300 text-xs mb-5">Вы нашли золотую сенинку первым!</p>
+
+            <div class="bg-slate-900/80 rounded-xl p-3.5 w-full grid grid-cols-3 gap-2 border border-slate-800 mb-4">
+                <div class="text-center">
+                    <div class="text-[10px] text-slate-400 mb-0.5">Режим</div>
+                    <div id="final-diff" class="text-xs font-bold text-amber-400">Легко</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-[10px] text-slate-400 mb-0.5">Время</div>
+                    <div id="final-time" class="text-xs font-bold font-mono text-slate-200">00:00</div>
+                </div>
+                <div class="text-center">
+                    <div class="text-[10px] text-slate-400 mb-0.5">Вытащено</div>
+                    <div id="final-needles" class="text-xs font-bold font-mono text-slate-200">0</div>
+                </div>
+            </div>
+
+            <div id="record-saved-msg" class="text-xs text-amber-400 font-semibold mb-4 hidden">
+                <i class="fa-solid fa-cloud-arrow-up mr-1"></i> Результат сохранен!
+            </div>
+
+            <div class="grid grid-cols-2 gap-3 w-full">
+                <button id="menu-btn" class="py-2.5 px-4 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 font-semibold text-xs border border-slate-700 transition-all cursor-pointer">
+                    <i class="fa-solid fa-bars mr-1.5"></i> В меню
+                </button>
+                <button id="play-again-btn" class="btn-shine py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 font-bold text-xs shadow-lg shadow-amber-500/20 hover:brightness-110 active:scale-[0.98] transition-all cursor-pointer">
+                    Играть снова <i class="fa-solid fa-rotate-right ml-1.5"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase Script Initialization -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { 
+            getAuth, 
+            signInAnonymously, 
+            signInWithCustomToken 
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { 
+            getFirestore, 
+            doc, 
+            getDoc, 
+            setDoc, 
+            updateDoc, 
+            collection, 
+            addDoc, 
+            getDocs, 
+            onSnapshot, 
+            serverTimestamp 
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'haystack-game-multi';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+            apiKey: "demo-api-key",
+            authDomain: "demo-app.firebaseapp.com",
+            projectId: "demo-app",
+            storageBucket: "demo-app.appspot.com",
+            messagingSenderId: "000000000000",
+            appId: "1:000000000000:web:000000000000"
+        };
+
+        window.firebaseApp = initializeApp(firebaseConfig);
+        window.firebaseAuth = getAuth(window.firebaseApp);
+        window.firebaseDb = getFirestore(window.firebaseApp);
+
+        // Authenticate anonymously first to satisfy Rule 3
+        try {
+            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                await signInWithCustomToken(window.firebaseAuth, __initial_auth_token);
+            } else {
+                await signInAnonymously(window.firebaseAuth);
+            }
+        } catch(e) {
+            console.warn("Auth initialization fallback:", e);
+        }
+
+        window.appId = appId;
+        window.dbFns = { doc, getDoc, setDoc, updateDoc, collection, addDoc, getDocs, onSnapshot, serverTimestamp };
+    </script>
+
+    <script>
+        // Custom Auth & Session State
+        let currentUserData = null;
+
+        // Custom Pseudo-Random Seeded Generator for Multiplayer Synchronization
+        function PRNG(seed) {
+            this.m = 0x80000000;
+            this.a = 1103515245;
+            this.c = 12345;
+            this.state = seed ? seed : Math.floor(Math.random() * (this.m - 1));
+        }
+        PRNG.prototype.nextInt = function() {
+            this.state = (this.a * this.state + this.c) % this.m;
+            return this.state;
+        };
+        PRNG.prototype.nextFloat = function() {
+            return this.nextInt() / (this.m - 1);
+        };
+
+        // Web Audio Synthesizer
+        class SoundSystem {
+            constructor() {
+                this.ctx = null;
+                this.enabled = true;
+            }
+            init() {
+                if (!this.ctx) {
+                    const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+                    this.ctx = new AudioContextClass();
+                }
+            }
+            playPullSound() {
+                if (!this.enabled || !this.ctx) return;
+                const osc = this.ctx.createOscillator();
+                const gain = this.ctx.createGain();
+                const startFreq = 2600 + Math.random() * 1200;
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(startFreq, this.ctx.currentTime);
+                osc.frequency.exponentialRampToValueAtTime(startFreq * 0.25, this.ctx.currentTime + 0.07);
+                gain.gain.setValueAtTime(0.09, this.ctx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + 0.07);
+                osc.connect(gain);
+                gain.connect(this.ctx.destination);
+                osc.start();
+                osc.stop(this.ctx.currentTime + 0.07);
+            }
+            playWinSound() {
+                if (!this.enabled || !this.ctx) return;
+                const notes = [523.25, 659.25, 783.99, 1046.50, 1318.51];
+                notes.forEach((freq, i) => {
+                    const osc = this.ctx.createOscillator();
+                    const gain = this.ctx.createGain();
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(freq, this.ctx.currentTime + i * 0.08);
+                    gain.gain.setValueAtTime(0, this.ctx.currentTime + i * 0.08);
+                    gain.gain.linearRampToValueAtTime(0.2, this.ctx.currentTime + i * 0.08 + 0.02);
+                    gain.gain.exponentialRampToValueAtTime(0.001, this.ctx.currentTime + i * 0.08 + 0.35);
+                    osc.connect(gain);
+                    gain.connect(this.ctx.destination);
+                    osc.start(this.ctx.currentTime + i * 0.08);
+                    osc.stop(this.ctx.currentTime + i * 0.08 + 0.35);
+                });
+            }
+        }
+        const sound = new SoundSystem();
+
+        // Game parameters & state
+        let currentGameMode = 'solo'; // 'solo' or 'multi'
+        let selectedTotalNeedles = 5000;
+        let selectedDiffName = "Легко";
+        let selectedDiffKey = "easy";
+
+        let scene, camera, renderer, controls;
+        let needlesGroup, singleHayStraw;
+        let activeNeedles = [];
+        let animatingNeedles = [];
+        let raycaster, mouse;
+        
+        let needlesRemaining = 0;
+        let needlesRemoved = 0;
+        let gameTimer = null;
+        let secondsElapsed = 0;
+        let isGameActive = false;
+
+        let pointerDownPos = { x: 0, y: 0 };
+        let victoryParticles = null;
+
+        // Multiplayer Sync State
+        let currentRoomId = null;
+        let roomUnsubscribe = null;
+        let isHost = false;
+        let opponentData = { name: 'Соперник', pulled: 0 };
+
+        // AUTH SYSTEM LOGIC
+        async function handleNicknameAuth(nickname, password) {
+            const errEl = document.getElementById('auth-error');
+            errEl.classList.add('hidden');
+
+            if (!window.firebaseDb) {
+                errEl.innerText = "База данных загружается, попробуйте еще раз...";
+                errEl.classList.remove('hidden');
+                return;
+            }
+
+            const cleanNick = nickname.trim();
+            const userDocRef = window.dbFns.doc(window.firebaseDb, 'artifacts', window.appId, 'public', 'data', 'users', cleanNick.toLowerCase());
+
+            try {
+                const snap = await window.dbFns.getDoc(userDocRef);
+
+                if (snap.exists()) {
+                    // Existing User Login
+                    const data = snap.data();
+                    if (data.password === password) {
+                        currentUserData = { nickname: data.nickname, wins: data.wins || 0 };
+                        localStorage.setItem('haystack_user', JSON.stringify({ nickname: cleanNick, password: password }));
+                        loginSuccess();
+                    } else {
+                        errEl.innerText = "Неверный пароль для данного никнейма!";
+                        errEl.classList.remove('hidden');
+                    }
+                } else {
+                    // Register New User
+                    const newUserData = { nickname: cleanNick, password: password, wins: 0, createdAt: window.dbFns.serverTimestamp() };
+                    await window.dbFns.setDoc(userDocRef, newUserData);
+                    currentUserData = { nickname: cleanNick, wins: 0 };
+                    localStorage.setItem('haystack_user', JSON.stringify({ nickname: cleanNick, password: password }));
+                    loginSuccess();
+                }
+            } catch(e) {
+                console.error("Auth error:", e);
+                errEl.innerText = "Ошибка авторизации. Проверьте подключение.";
+                errEl.classList.remove('hidden');
+            }
+        }
+
+        function loginSuccess() {
+            document.getElementById('auth-modal').classList.add('hidden');
+            document.getElementById('start-screen').classList.remove('hidden');
+            document.getElementById('user-display-name').innerText = currentUserData.nickname;
+        }
+
+        function autoLoginSavedUser() {
+            const saved = localStorage.getItem('haystack_user');
+            if (saved) {
+                try {
+                    const parsed = JSON.parse(saved);
+                    handleNicknameAuth(parsed.nickname, parsed.password);
+                } catch(e) {}
+            }
+        }
+
+        // THREE.JS SCENE SETUP
+        function initThreeScene() {
+            const container = document.getElementById('canvas-container');
+
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x030712);
+            scene.fog = new THREE.FogExp2(0x030712, 0.03);
+
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+            resetCameraPosition();
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.toneMapping = THREE.ACESFilmicToneMapping;
+            renderer.toneMappingExposure = 1.35;
+            container.appendChild(renderer.domElement);
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.06;
+            controls.maxPolarAngle = Math.PI / 2 + 0.02;
+            controls.minDistance = 3.0;
+            controls.maxDistance = 16.0;
+            controls.target.set(0, 0.45, 0);
+
+            const ambient = new THREE.AmbientLight(0x94a3b8, 0.75);
+            scene.add(ambient);
+
+            const keyLight = new THREE.DirectionalLight(0xffffff, 1.5);
+            keyLight.position.set(7, 14, 7);
+            keyLight.castShadow = true;
+            scene.add(keyLight);
+
+            const fillLight = new THREE.DirectionalLight(0x38bdf8, 0.5);
+            fillLight.position.set(-7, 7, -7);
+            scene.add(fillLight);
+
+            const tableGeo = new THREE.CylinderGeometry(5.2, 5.5, 0.3, 48);
+            const tableMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.5, metalness: 0.2 });
+            const table = new THREE.Mesh(tableGeo, tableMat);
+            table.position.y = -0.15;
+            table.receiveShadow = true;
+            scene.add(table);
+
+            raycaster = new THREE.Raycaster();
+            mouse = new THREE.Vector2();
+
+            needlesGroup = new THREE.Group();
+            scene.add(needlesGroup);
+
+            window.addEventListener('resize', onWindowResize, false);
+        }
+
+        function resetCameraPosition() {
+            camera.position.set(0, 4.8, 8.5);
+            if (controls) {
+                controls.target.set(0, 0.45, 0);
+                controls.update();
+            }
+        }
+
+        function buildNeedleAndHayPile(seed = null) {
+            while (needlesGroup.children.length > 0) {
+                const obj = needlesGroup.children[0];
+                needlesGroup.remove(obj);
+                if (obj.geometry) obj.geometry.dispose();
+                if (obj.material) obj.material.dispose();
+            }
+
+            activeNeedles = [];
+            animatingNeedles = [];
+            needlesRemaining = selectedTotalNeedles;
+            needlesRemoved = 0;
+            document.getElementById('counter').innerText = `${needlesRemaining} / ${selectedTotalNeedles}`;
+            document.getElementById('hud-diff').innerText = selectedDiffName;
+
+            const rng = new PRNG(seed ? seed : Math.floor(Math.random() * 1000000));
+
+            const needleMat = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, metalness: 0.95, roughness: 0.12 });
+            const SHORT_LENGTH = 0.73;
+            const needleGeo = new THREE.CylinderGeometry(0.009, 0.018, SHORT_LENGTH, 6);
+            needleGeo.translate(0, SHORT_LENGTH / 2, 0);
+
+            // 1. Single Golden Hay Straw with Pseudo-random or random placement
+            const hayGeo = new THREE.CylinderGeometry(0.018, 0.018, SHORT_LENGTH, 8);
+            hayGeo.translate(0, SHORT_LENGTH / 2, 0);
+            const hayMat = new THREE.MeshStandardMaterial({ color: 0xd97706, roughness: 0.65, metalness: 0.05 });
+
+            singleHayStraw = new THREE.Mesh(hayGeo, hayMat);
+
+            const randomR = Math.sqrt(rng.nextFloat()) * 2.5; 
+            const randomTheta = rng.nextFloat() * Math.PI * 2;
+            const maxPossibleY = Math.pow(Math.max(0, 1 - randomR / 2.8), 1.3) * 1.35 + 0.1;
+            const randomY = rng.nextFloat() * maxPossibleY;
+
+            singleHayStraw.position.set(
+                Math.cos(randomTheta) * randomR,
+                Math.max(0.02, randomY),
+                Math.sin(randomTheta) * randomR
+            );
+
+            singleHayStraw.rotation.x = (rng.nextFloat() - 0.5) * Math.PI;
+            singleHayStraw.rotation.y = rng.nextFloat() * Math.PI * 2;
+            singleHayStraw.rotation.z = (rng.nextFloat() - 0.5) * Math.PI;
+            singleHayStraw.castShadow = true;
+            singleHayStraw.userData = { isHay: true };
+
+            needlesGroup.add(singleHayStraw);
+
+            // 2. Generate Needles
+            for (let i = 0; i < selectedTotalNeedles; i++) {
+                const needle = new THREE.Mesh(needleGeo, needleMat);
+                const r = Math.sqrt(rng.nextFloat()) * 2.8;
+                const theta = rng.nextFloat() * Math.PI * 2;
+                const x = Math.cos(theta) * r;
+                const z = Math.sin(theta) * r;
+                const heightFactor = Math.pow(Math.max(0, 1 - r / 2.8), 1.3);
+                const y = heightFactor * 1.35 + rng.nextFloat() * 0.18;
+
+                needle.position.set(x, y, z);
+                needle.rotation.x = (rng.nextFloat() - 0.5) * Math.PI * 0.85;
+                needle.rotation.y = rng.nextFloat() * Math.PI * 2;
+                needle.rotation.z = (rng.nextFloat() - 0.5) * Math.PI * 0.85;
+                needle.castShadow = true;
+
+                needle.userData = { isNeedle: true, isAnimating: false, id: i };
+                needlesGroup.add(needle);
+                activeNeedles.push(needle);
+            }
+        }
+
+        // TOUCH & MOUSE INTERACTION
+        function onPointerDown(e) {
+            if (!isGameActive) return;
+            const clientX = e.clientX || (e.touches && e.touches[0].clientX);
+            const clientY = e.clientY || (e.touches && e.touches[0].clientY);
+            pointerDownPos = { x: clientX, y: clientY };
+        }
+
+        function onPointerUp(e) {
+            if (!isGameActive) return;
+            const clientX = e.clientX || (e.changedTouches && e.changedTouches[0].clientX);
+            const clientY = e.clientY || (e.changedTouches && e.changedTouches[0].clientY);
+            const dist = Math.hypot(clientX - pointerDownPos.x, clientY - pointerDownPos.y);
+            if (dist < 8) attemptSelectObject(clientX, clientY);
+        }
+
+        function attemptSelectObject(clientX, clientY) {
+            mouse.x = (clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(clientY / window.innerHeight) * 2 + 1;
+            raycaster.setFromCamera(mouse, camera);
+
+            const candidateObjects = activeNeedles.filter(n => !n.userData.isAnimating);
+            candidateObjects.push(singleHayStraw);
+
+            const intersects = raycaster.intersectObjects(candidateObjects, false);
+
+            if (intersects.length > 0) {
+                const hitObj = intersects[0].object;
+                if (hitObj.userData.isHay) {
+                    triggerWin(true);
+                    return;
+                }
+                if (hitObj.userData.isNeedle && !hitObj.userData.isAnimating) {
+                    pullSingleNeedle(hitObj);
+                }
+            }
+        }
+
+        function pullSingleNeedle(needle) {
+            needle.userData.isAnimating = true;
+            const idx = activeNeedles.indexOf(needle);
+            if (idx > -1) activeNeedles.splice(idx, 1);
+
+            sound.playPullSound();
+
+            const startPos = needle.position.clone();
+            const endY = startPos.y + 4.5;
+            const throwDirX = (Math.random() - 0.5) * 9;
+            const throwDirZ = (Math.random() - 0.5) * 9;
+
+            animatingNeedles.push({
+                mesh: needle,
+                progress: 0,
+                startPos: startPos,
+                endY: endY,
+                throwX: throwDirX,
+                throwZ: throwDirZ,
+                rotSpeedX: (Math.random() - 0.5) * 0.3,
+                rotSpeedZ: (Math.random() - 0.5) * 0.3
+            });
+
+            needlesRemaining = Math.max(0, needlesRemaining - 1);
+            needlesRemoved++;
+            document.getElementById('counter').innerText = `${needlesRemaining} / ${selectedTotalNeedles}`;
+
+            // Sync with Multiplayer room
+            if (currentGameMode === 'multi' && currentRoomId) {
+                syncMultiplayerProgress();
+            }
+        }
+
+        function updateAnimations() {
+            for (let i = animatingNeedles.length - 1; i >= 0; i--) {
+                const anim = animatingNeedles[i];
+                anim.progress += 0.05;
+
+                if (anim.progress < 0.4) {
+                    const t = anim.progress / 0.4;
+                    anim.mesh.position.y = THREE.MathUtils.lerp(anim.startPos.y, anim.endY, t);
+                } else {
+                    const t = (anim.progress - 0.4) / 0.6;
+                    anim.mesh.position.x = anim.startPos.x + anim.throwX * t;
+                    anim.mesh.position.z = anim.startPos.z + anim.throwZ * t;
+                    anim.mesh.position.y = anim.endY - (t * t * 6.0);
+                    anim.mesh.rotation.x += anim.rotSpeedX;
+                    anim.mesh.rotation.z += anim.rotSpeedZ;
+                }
+
+                if (anim.progress >= 1.0) {
+                    needlesGroup.remove(anim.mesh);
+                    if (anim.mesh.geometry) anim.mesh.geometry.dispose();
+                    if (anim.mesh.material) anim.mesh.material.dispose();
+                    animatingNeedles.splice(i, 1);
+                }
+            }
+
+            if (victoryParticles) {
+                const pos = victoryParticles.geometry.attributes.position.array;
+                const vels = victoryParticles.userData.vels;
+                for (let i = 0; i < vels.length; i++) {
+                    pos[i * 3] += vels[i].x;
+                    pos[i * 3 + 1] += vels[i].y;
+                    pos[i * 3 + 2] += vels[i].z;
+                    vels[i].y -= 0.0025;
+                }
+                victoryParticles.geometry.attributes.position.needsUpdate = true;
+                victoryParticles.userData.life -= 0.015;
+                victoryParticles.material.opacity = Math.max(0, victoryParticles.userData.life);
+
+                if (victoryParticles.userData.life <= 0) {
+                    scene.remove(victoryParticles);
+                    victoryParticles.geometry.dispose();
+                    victoryParticles.material.dispose();
+                    victoryParticles = null;
+                }
+            }
+        }
+
+        function renderLoop() {
+            requestAnimationFrame(renderLoop);
+            controls.update();
+            updateAnimations();
+            renderer.render(scene, camera);
+        }
+
+        // MULTIPLAYER REALTIME FIRESTORE LOGIC
+        async function createMultiplayerRoom() {
+            if (!currentUserData) return;
+            const code = Math.floor(1000 + Math.random() * 9000).toString();
+            const seed = Math.floor(Math.random() * 1000000);
+
+            const roomRef = window.dbFns.doc(window.firebaseDb, 'artifacts', window.appId, 'public', 'data', 'rooms', code);
+            await window.dbFns.setDoc(roomRef, {
+                code: code,
+                seed: seed,
+                status: 'waiting',
+                hostName: currentUserData.nickname,
+                hostPulled: 0,
+                guestName: '',
+                guestPulled: 0,
+                winner: '',
+                createdAt: window.dbFns.serverTimestamp()
+            });
+
+            currentRoomId = code;
+            isHost = true;
+            document.getElementById('lobby-code-display').innerText = code;
+            document.getElementById('lobby-modal').classList.remove('hidden');
+
+            subscribeToRoom(code);
+        }
+
+        async function joinMultiplayerRoom(code) {
+            if (!currentUserData) return;
+            const roomRef = window.dbFns.doc(window.firebaseDb, 'artifacts', window.appId, 'public', 'data', 'rooms', code);
+            const snap = await window.dbFns.getDoc(roomRef);
+
+            if (!snap.exists()) {
+                alert("Комната с таким кодом не найдена!");
+                return;
+            }
+
+            const data = snap.data();
+            if (data.status !== 'waiting') {
+                alert("Комната уже заполнена или игра завершена!");
+                return;
+            }
+
+            await window.dbFns.updateDoc(roomRef, {
+                guestName: currentUserData.nickname,
+                status: 'playing'
+            });
+
+            currentRoomId = code;
+            isHost = false;
+            subscribeToRoom(code);
+        }
+
+        function subscribeToRoom(code) {
+            if (roomUnsubscribe) roomUnsubscribe();
+            const roomRef = window.dbFns.doc(window.firebaseDb, 'artifacts', window.appId, 'public', 'data', 'rooms', code);
+
+            roomUnsubscribe = window.dbFns.onSnapshot(roomRef, (docSnap) => {
+                if (!docSnap.exists()) return;
+                const data = docSnap.data();
+
+                if (data.status === 'playing' && !isGameActive) {
+                    document.getElementById('lobby-modal').classList.add('hidden');
+                    opponentData.name = isHost ? data.guestName : data.hostName;
+                    startMultiplayerMatch(data.seed);
+                }
+
+                if (data.status === 'playing' && isGameActive) {
+                    const oppPulled = isHost ? data.guestPulled : data.hostPulled;
+                    document.getElementById('opponent-pulled-hud').innerText = oppPulled;
+                }
+
+                if (data.status === 'finished' && isGameActive) {
+                    if (data.winner !== currentUserData.nickname) {
+                        triggerWin(false, data.winner);
+                    }
+                }
+            });
+        }
+
+        async function syncMultiplayerProgress() {
+            if (!currentRoomId) return;
+            const roomRef = window.dbFns.doc(window.firebaseDb, 'artifacts', window.appId, 'public', 'data', 'rooms', currentRoomId);
+            if (isHost) {
+                await window.dbFns.updateDoc(roomRef, { hostPulled: needlesRemoved });
+            } else {
+                await window.dbFns.updateDoc(roomRef, { guestPulled: needlesRemoved });
+            }
+        }
+
+        function startMultiplayerMatch(seed) {
+            currentGameMode = 'multi';
+            selectedTotalNeedles = 5000;
+            selectedDiffName = "Дуэль";
+
+            document.getElementById('start-screen').classList.add('hidden');
+            document.getElementById('hud').classList.remove('hidden');
+            document.getElementById('multi-hud').classList.remove('hidden');
+            document.getElementById('opponent-name-hud').innerText = opponentData.name;
+
+            buildNeedleAndHayPile(seed);
+            resetCameraPosition();
+
+            secondsElapsed = 0;
+            isGameActive = true;
+
+            if (gameTimer) clearInterval(gameTimer);
+            gameTimer = setInterval(() => {
+                secondsElapsed++;
+                const m = String(Math.floor(secondsElapsed / 60)).padStart(2, '0');
+                const s = String(secondsElapsed % 60).padStart(2, '0');
+                document.getElementById('timer').innerText = `${m}:${s}`;
+            }, 1000);
+        }
+
+        function startGameSolo() {
+            currentGameMode = 'solo';
+            sound.init();
+            document.getElementById('start-screen').classList.add('hidden');
+            document.getElementById('victory-screen').classList.add('hidden');
+            document.getElementById('multi-hud').classList.add('hidden');
+            document.getElementById('hud').classList.remove('hidden');
+
+            secondsElapsed = 0;
+            document.getElementById('timer').innerText = '00:00';
+
+            buildNeedleAndHayPile();
+            resetCameraPosition();
+
+            isGameActive = true;
+
+            if (gameTimer) clearInterval(gameTimer);
+            gameTimer = setInterval(() => {
+                secondsElapsed++;
+                const m = String(Math.floor(secondsElapsed / 60)).padStart(2, '0');
+                const s = String(secondsElapsed % 60).padStart(2, '0');
+                document.getElementById('timer').innerText = `${m}:${s}`;
+            }, 1000);
+        }
+
+        async function triggerWin(isWinner, winnerName = '') {
+            isGameActive = false;
+            if (gameTimer) clearInterval(gameTimer);
+
+            if (isWinner) sound.playWinSound();
+
+            if (currentGameMode === 'multi' && currentRoomId && isWinner) {
+                const roomRef = window.dbFns.doc(window.firebaseDb, 'artifacts', window.appId, 'public', 'data', 'rooms', currentRoomId);
+                await window.dbFns.updateDoc(roomRef, {
+                    status: 'finished',
+                    winner: currentUserData.nickname
+                });
+                // Increment player win count
+                currentUserData.wins = (currentUserData.wins || 0) + 1;
+                const userDocRef = window.dbFns.doc(window.firebaseDb, 'artifacts', window.appId, 'public', 'data', 'users', currentUserData.nickname.toLowerCase());
+                await window.dbFns.updateDoc(userDocRef, { wins: currentUserData.wins });
+            }
+
+            const winTitle = document.getElementById('win-title');
+            const winSubtitle = document.getElementById('win-subtitle');
+            const recordMsg = document.getElementById('record-saved-msg');
+
+            if (isWinner) {
+                winTitle.innerText = "Победа!";
+                winSubtitle.innerText = currentGameMode === 'multi' ? `Вы обогнали ${opponentData.name}!` : "Вы нашли золотую сенинку!";
+            } else {
+                winTitle.innerText = "Поражение!";
+                winSubtitle.innerText = `${winnerName || 'Соперник'} нашел сенинку раньше!`;
+            }
+
+            const m = String(Math.floor(secondsElapsed / 60)).padStart(2, '0');
+            const s = String(secondsElapsed % 60).padStart(2, '0');
+
+            document.getElementById('final-diff').innerText = selectedDiffName;
+            document.getElementById('final-time').innerText = `${m}:${s}`;
+            document.getElementById('final-needles').innerText = needlesRemoved;
+
+            // Save High Score in singleplayer
+            recordMsg.classList.add('hidden');
+            if (currentGameMode === 'solo' && isWinner && currentUserData) {
+                saveHighScore(selectedDiffKey, secondsElapsed, needlesRemoved);
+                recordMsg.classList.remove('hidden');
+            }
+
+            setTimeout(() => {
+                document.getElementById('hud').classList.add('hidden');
+                document.getElementById('victory-screen').classList.remove('hidden');
+            }, 600);
+        }
+
+        async function saveHighScore(diffKey, timeSec, pulled) {
+            const lbRef = window.dbFns.collection(window.firebaseDb, 'artifacts', window.appId, 'public', 'data', `lb_${diffKey}`);
+            await window.dbFns.addDoc(lbRef, {
+                username: currentUserData.nickname,
+                timeSeconds: timeSec,
+                needlesRemoved: pulled,
+                createdAt: window.dbFns.serverTimestamp()
+            });
+        }
+
+        async function fetchLeaderboard(diffKey) {
+            const tbody = document.getElementById('leaderboard-tbody');
+            const col3 = document.getElementById('lb-col-3');
+            const col4 = document.getElementById('lb-col-4');
+
+            tbody.innerHTML = '<tr><td colspan="4" class="py-6 text-center text-slate-500 text-xs">Загрузка...</td></tr>';
+
+            if (diffKey === 'multi') {
+                col3.innerText = "Побед";
+                col4.innerText = "Статус";
+                
+                const usersRef = window.dbFns.collection(window.firebaseDb, 'artifacts', window.appId, 'public', 'data', 'users');
+                const snap = await window.dbFns.getDocs(usersRef);
+                let users = [];
+                snap.forEach(d => users.push(d.data()));
+                users.sort((a,b) => (b.wins || 0) - (a.wins || 0));
+
+                tbody.innerHTML = '';
+                users.slice(0, 20).forEach((u, i) => {
+                    const tr = document.createElement('tr');
+                    tr.className = "hover:bg-slate-800/40 text-slate-300";
+                    tr.innerHTML = `
+                        <td class="py-2 px-1 font-mono">${i + 1}</td>
+                        <td class="py-2 px-2 truncate max-w-[120px] font-bold">${u.nickname}</td>
+                        <td class="py-2 px-2 text-right font-mono text-amber-400 font-bold">${u.wins || 0}</td>
+                        <td class="py-2 px-1 text-right text-[10px] text-slate-500">Дуэлянт</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            } else {
+                col3.innerText = "Время";
+                col4.innerText = "Иголки";
+                const lbRef = window.dbFns.collection(window.firebaseDb, 'artifacts', window.appId, 'public', 'data', `lb_${diffKey}`);
+                const snap = await window.dbFns.getDocs(lbRef);
+                let scores = [];
+                snap.forEach(d => scores.push(d.data()));
+                scores.sort((a,b) => a.timeSeconds - b.timeSeconds);
+
+                tbody.innerHTML = '';
+                if (scores.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="4" class="py-6 text-center text-slate-500 text-xs">Пока нет рекордов</td></tr>';
+                    return;
+                }
+
+                scores.slice(0, 20).forEach((s, i) => {
+                    const m = String(Math.floor(s.timeSeconds / 60)).padStart(2, '0');
+                    const sec = String(s.timeSeconds % 60).padStart(2, '0');
+                    const tr = document.createElement('tr');
+                    tr.className = "hover:bg-slate-800/40 text-slate-300";
+                    tr.innerHTML = `
+                        <td class="py-2 px-1 font-mono">${i + 1}</td>
+                        <td class="py-2 px-2 truncate max-w-[120px] font-bold">${s.username}</td>
+                        <td class="py-2 px-2 text-right font-mono">${m}:${sec}</td>
+                        <td class="py-2 px-1 text-right font-mono">${s.needlesRemoved}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            }
+        }
+
+        function returnToMenu() {
+            isGameActive = false;
+            if (gameTimer) clearInterval(gameTimer);
+            if (roomUnsubscribe) roomUnsubscribe();
+            
+            document.getElementById('hud').classList.add('hidden');
+            document.getElementById('victory-screen').classList.add('hidden');
+            document.getElementById('start-screen').classList.remove('hidden');
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        window.onload = () => {
+            initThreeScene();
+            renderLoop();
+            autoLoginSavedUser();
+
+            const container = document.getElementById('canvas-container');
+            container.addEventListener('mousedown', onPointerDown, false);
+            container.addEventListener('mouseup', onPointerUp, false);
+            container.addEventListener('touchstart', onPointerDown, { passive: true });
+            container.addEventListener('touchend', onPointerUp, { passive: true });
+
+            document.getElementById('nickname-auth-form').addEventListener('submit', (e) => {
+                e.preventDefault();
+                const nick = document.getElementById('auth-nickname').value;
+                const pass = document.getElementById('auth-password').value;
+                handleNicknameAuth(nick, pass);
+            });
+
+            document.getElementById('logout-btn').addEventListener('click', () => {
+                localStorage.removeItem('haystack_user');
+                currentUserData = null;
+                document.getElementById('start-screen').classList.add('hidden');
+                document.getElementById('auth-modal').classList.remove('hidden');
+            });
+
+            // Mode Tabs
+            const soloTab = document.getElementById('mode-solo-tab');
+            const multiTab = document.getElementById('mode-multi-tab');
+            const soloOpts = document.getElementById('solo-options');
+            const multiOpts = document.getElementById('multi-options');
+
+            soloTab.addEventListener('click', () => {
+                currentGameMode = 'solo';
+                soloTab.className = "flex-1 py-1.5 text-xs font-bold rounded-lg bg-amber-500 text-slate-950 transition-all";
+                multiTab.className = "flex-1 py-1.5 text-xs font-bold rounded-lg text-slate-400 hover:text-white transition-all";
+                soloOpts.classList.remove('hidden');
+                multiOpts.classList.add('hidden');
+            });
+
+            multiTab.addEventListener('click', () => {
+                currentGameMode = 'multi';
+                multiTab.className = "flex-1 py-1.5 text-xs font-bold rounded-lg bg-amber-500 text-slate-950 transition-all";
+                soloTab.className = "flex-1 py-1.5 text-xs font-bold rounded-lg text-slate-400 hover:text-white transition-all";
+                multiOpts.classList.remove('hidden');
+                soloOpts.classList.add('hidden');
+            });
+
+            // Difficulty Cards
+            const diffCards = document.querySelectorAll('.diff-card');
+            diffCards.forEach(card => {
+                card.addEventListener('click', () => {
+                    diffCards.forEach(c => c.classList.remove('selected'));
+                    card.classList.add('selected');
+                    selectedTotalNeedles = parseInt(card.dataset.needles);
+                    selectedDiffName = card.dataset.name;
+                    selectedDiffKey = card.dataset.key;
+                });
+            });
+
+            // Multiplayer Buttons
+            document.getElementById('create-room-btn').addEventListener('click', createMultiplayerRoom);
+            document.getElementById('join-room-btn').addEventListener('click', () => {
+                const code = document.getElementById('room-code-input').value.trim();
+                if (code) joinMultiplayerRoom(code);
+            });
+            document.getElementById('cancel-lobby-btn').addEventListener('click', () => {
+                if (roomUnsubscribe) roomUnsubscribe();
+                document.getElementById('lobby-modal').classList.add('hidden');
+            });
+
+            document.getElementById('start-btn').addEventListener('click', () => {
+                if (currentGameMode === 'solo') startGameSolo();
+                else createMultiplayerRoom();
+            });
+
+            document.getElementById('restart-game-btn').addEventListener('click', returnToMenu);
+            document.getElementById('play-again-btn').addEventListener('click', () => {
+                if (currentGameMode === 'solo') startGameSolo();
+                else returnToMenu();
+            });
+            document.getElementById('menu-btn').addEventListener('click', returnToMenu);
+            document.getElementById('reset-cam-btn').addEventListener('click', resetCameraPosition);
+
+            document.getElementById('sound-btn').addEventListener('click', () => {
+                sound.enabled = !sound.enabled;
+                document.getElementById('sound-btn').innerHTML = sound.enabled 
+                    ? '<i class="fa-solid fa-volume-high text-xs"></i>' 
+                    : '<i class="fa-solid fa-volume-xmark text-xs text-red-400"></i>';
+            });
+
+            // Leaderboard Modal & Tabs
+            document.getElementById('leaderboard-btn').addEventListener('click', () => {
+                document.getElementById('leaderboard-modal').classList.remove('hidden');
+                fetchLeaderboard(selectedDiffKey);
+            });
+            document.getElementById('close-leaderboard-modal').addEventListener('click', () => {
+                document.getElementById('leaderboard-modal').classList.add('hidden');
+            });
+
+            const lbTabs = document.querySelectorAll('.lb-tab');
+            lbTabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    lbTabs.forEach(t => t.className = "lb-tab py-1 text-[10px] font-bold rounded bg-slate-800 text-slate-400 border border-slate-700");
+                    tab.className = "lb-tab active py-1 text-[10px] font-bold rounded bg-amber-500/20 text-amber-400 border border-amber-500/30";
+                    fetchLeaderboard(tab.dataset.diff);
+                });
+            });
+        };
+    </script>
+</body>
+</html>
